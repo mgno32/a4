@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <vector>
+#include "interpolation.h"
 using namespace cimg_library;
 using namespace std;
 typedef unsigned char uchar;
@@ -15,6 +16,9 @@ double DIFF = 200;
 int Threshold = 750;
 const float PAPER_WIDTH = 1190.0;
 const float PAPER_HEIGHT = 1684.0;
+class dot;
+vector<dot> intersec;
+	
 void RGBtoGray(CImg<uchar> &image, CImg<uchar> &gray){
 	cimg_forXY(image,x, y) {
 		int R = (int)image(x,y,0,0);
@@ -115,7 +119,7 @@ void printOutHough(vector<pix> houghLine, CImg<float> hough){
 		for (size_t i = 0; i < houghLine.size(); i++){
 		houghMaxDot.x = houghLine[i].x;
 		houghMaxDot.y = houghLine[i].y;
-		cout<<"------------\n"<<houghMaxDot.x<<" "<<houghMaxDot.y<<endl;
+	
 		hough.draw_circle(houghMaxDot.x,houghMaxDot.y,50,color);
 	}
 	hough.display();
@@ -124,12 +128,13 @@ void printOutHough(vector<pix> houghLine, CImg<float> hough){
 void printOutLineAndDots(vector<pix>  hough_line,CImg<uchar> image){
 	double k,b;
 	vector<dot> kbLine;
-	vector<dot> intersec;
+	
 	for(size_t i = 0; i < hough_line.size(); i++){
 	    double angle  = hough_line[i].x * PI / 180;	
 		k = -cos(angle)/sin(angle);
 		b = hough_line[i].y / sin(angle);
 		kbLine.push_back(dot(k,b));
+		
 		cout<<"y = "<<k<<" x + "<<b<<endl;
 	}
 	for(size_t i = 0; i < kbLine.size(); i++){
@@ -153,10 +158,11 @@ void printOutLineAndDots(vector<pix>  hough_line,CImg<uchar> image){
 		int dot_y = intersec[i].y;
 		uchar color[] = { 100,100,100};
 		image.draw_circle(dot_x,dot_y,50,color);
-
+ 		cout<<"--------------------"<<endl;
+		cout<<dot_x<<"  "<<dot_y<<endl;
 	}
 	image.display();
-	image.save("output.jpg");
+	image.save("DotDetect.jpg");
 }
 
 int get_thr(char* filename){
@@ -166,7 +172,7 @@ int get_thr(char* filename){
 }
  
 double get_diff(char* filename){
-	int dif[6] = {50,200,200,200,200,200};
+	int dif[6] = {50,200,200,200,200,100};
 	int numOfTest = filename[0] - '1';
 	return dif[numOfTest];
 }
@@ -177,7 +183,13 @@ float get_grad(char* filename){
 	return grad[numOfTest];
 }
 
-CImg<float> warp(vector<pix> hough, const CImg<float> &src_img) {
+void swap(float & a, float& b){
+	float tmp = a;
+	a = b;
+	b = tmp;
+}
+
+CImg<float> warp(vector<dot>& hough, const CImg<float> &src_img) {
 	float u0 = 0, v0 = 0;
 	float u1 = PAPER_WIDTH, v1 = 0;
 	float u2 = 0, v2 = PAPER_HEIGHT;
@@ -187,7 +199,6 @@ CImg<float> warp(vector<pix> hough, const CImg<float> &src_img) {
 	float x1 = hough[1].x, y1 = hough[1].y;
 	float x2 = hough[2].x, y2 = hough[2].y;
 	float x3 = hough[3].x, y3 = hough[3].y;
-
 	float c1, c2, c3, c4, c5, c6, c7, c8;
 
 	c1 = -(u0*v0*v1*x2 - u0*v0*v2*x1 - u0*v0*v1*x3 + u0*v0*v3*x1 - u1*v0*v1*x2 + u1*v1*v2*x0 + u0*v0*v2*x3 - u0*v0*v3*x2 + u1*v0*v1*x3 - u1*v1*v3*x0 + u2*v0*v2*x1 - u2*v1*v2*x0
@@ -284,12 +295,12 @@ int main(int agrc,char **argv) {
 		}
 	}
     
-	hough_vote.display();
 	vector<pix> hough_line = findLines(hough_vote, image);
 	printOutHough(hough_line,hough_vote);
 	printOutLineAndDots(hough_line,image);
 	CImg<float> backupImage(filename);
-	CImg<float> res = warp(hough_line,backupImage);
-	res.display();
+	CImg<float> res = warp(intersec,backupImage);
+	res.save("warp.jpg");
+	cout<<filename<<endl;
 	return 0;
 }
