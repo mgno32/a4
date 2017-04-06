@@ -8,14 +8,14 @@
 using namespace cimg_library;
 using namespace std;
 typedef unsigned char uchar;
-int LINENUM = 4;
+const int LINENUM = 4;
 float max_grad = 400;
 const double PI = 3.1415926;
-const double DIFF = 200;
-int Threshold = 650;
+double DIFF = 200;
+int Threshold = 750;
 
 void RGBtoGray(CImg<uchar> &image, CImg<uchar> &gray){
-	cimg_forXY(image,x,y) {
+	cimg_forXY(image,x, y) {
 		int R = (int)image(x,y,0,0);
 		int G = (int)image(x,y,0,1);
 		int B = (int)image(x,y,0,2);
@@ -65,21 +65,20 @@ int P2Y(double theta, double dist, int y){
 	return (y - b) * (-tan(ang));
 }
 
-
 double get_distance(double dx, double dy){
 	return sqrt(dx * dx + dy * dy);
 }
-
+ 
 vector<pix> findLines(CImg<float> &hough, CImg<uchar> image){
 	vector<pix> maxP;
 	const int ymin = 0;
 	const int ymax = image.height() - 1;
 	const int xmin = 0;
 	const int xmax = image.width() - 1;
-	cimg_forXY(hough,angle,polar){
+ 	cimg_forXY(hough,angle,polar){
 		// 判断是否为峰值
 		float v = hough(angle, polar); // 投票数
-		if(v > Threshold){
+ 		if(v > Threshold){
 			// 图像范围
 			int x0 = P2Y(angle, polar, ymin);
 			int x1 = P2Y(angle, polar, ymax);
@@ -97,23 +96,31 @@ vector<pix> findLines(CImg<float> &hough, CImg<uchar> image){
 					flag = true;
 					if (p.value < v){
 						p = pix(angle, polar, v);
-					}
-				}
-			}
+ 					}
+ 				}
+ 			}
 			if (!flag){
 				maxP.push_back(pix(angle, polar, v));
-			}
+			} 
  		}
 	}
 
-	for (pix p: maxP){
-		cout << "+=" << p.x << "," << p.y<<endl;
-	}
-	
  	return maxP;
 }
 
-void printOutLineAndDots(vector<pix> hough_line,CImg<uchar> image){
+void printOutHough(vector<pix> houghLine, CImg<float> hough){
+	dot houghMaxDot(0,0);
+	uchar color[] = { 100,100,100};
+		for (size_t i = 0; i < houghLine.size(); i++){
+		houghMaxDot.x = houghLine[i].x;
+		houghMaxDot.y = houghLine[i].y;
+		cout<<"------------\n"<<houghMaxDot.x<<" "<<houghMaxDot.y<<endl;
+		hough.draw_circle(houghMaxDot.x,houghMaxDot.y,50,color);
+	}
+	hough.display();
+}
+
+void printOutLineAndDots(vector<pix>  hough_line,CImg<uchar> image){
 	double k,b;
 	vector<dot> kbLine;
 	vector<dot> intersec;
@@ -132,11 +139,11 @@ void printOutLineAndDots(vector<pix> hough_line,CImg<uchar> image){
 			double b1 = kbLine[j].y;
 			double x1 = (b1-b0) / (m0-m1);
 			double y1 = (m0 * b1 - m1 * b0)/(m0 - m1);
-			cout << m0 << ", " << b0 << endl;
-			cout << m1 << ",**" << b1 << endl;
+
+	
 			if( x1 >= 0 && y1 >= 0 && x1 < image.width() && y1 < image.height()){
 				intersec.push_back(dot(x1,y1)); // 添加交点
-				cout << "DOT:(" << x1 << ", " << y1 << ")" << endl; 
+			
 			}
 		}	
 	}
@@ -148,10 +155,34 @@ void printOutLineAndDots(vector<pix> hough_line,CImg<uchar> image){
 
 	}
 	image.display();
+	image.save("output.jpg");
 }
 
-int main() {
-	CImg<uchar> image("1.jpg");	
+int get_thr(char* filename){
+	int thr[6] = {600,750,650,800,300,650};
+	int numOfTest = filename[0] - '1';
+	return thr[numOfTest];
+}
+ 
+double get_diff(char* filename){
+	int dif[6] = {50,200,200,200,200,200};
+	int numOfTest = filename[0] - '1';
+	return dif[numOfTest];
+}
+
+float get_grad(char* filename){
+	float grad[6] = {400,400,400,200,400,400};
+	int numOfTest = filename[0] - '1';
+	return grad[numOfTest];
+}
+
+int main(int agrc,char **argv) {	
+	char *filename = argv[1];
+	Threshold = get_thr(filename);
+	DIFF = get_diff(filename);
+	max_grad = get_grad(filename);
+	
+	CImg<uchar> image(filename);	
 	CImg<uchar> grayImage(image.width(),image.height());
 	CImg<uchar> blurImage(image.width(),image.height());
 	CImg<float> gbImage(image.width(), image.height());
@@ -159,8 +190,10 @@ int main() {
 	RGBtoGray(image,grayImage);
 	gbImage = grayImage.get_blur_median(3);
 	gbImage.blur(3);
+	//gbImage.vanvliet(0.5,0);
 	gbImage.display();
-	
+    
+	gbImage.save("bgimage.jpg");	
 	CImg<float> gradnum(image.width(), image.height());
 	CImg_3x3(I,float);
 	CImg<float> hough_vote(360,dis(image.width(),image.height()),1,1,0);
@@ -180,8 +213,12 @@ int main() {
 		}
 	}
 	gradnum.display();
+	
+	gradnum.save("gradnum.jpg");
 	hough_vote.display();
+	hough_vote.save("hough.jpg");
 	vector<pix> hough_line = findLines(hough_vote, image);
+	printOutHough(hough_line,hough_vote);
 	cout << hough_line.size() << endl;
 	printOutLineAndDots(hough_line,image);
 	return 0;
