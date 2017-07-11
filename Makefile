@@ -4,7 +4,7 @@ CXX := g++
 CFLAGS := -g -std=c++11
 LDFLAGS :=  -pthread -lX11
 
-SRCS := $(wildcard ./test.cpp)
+SRCS := $(wildcard ./tutorial.cpp)
 OBJS := $(patsubst %cpp,%o,$(SRCS))
 
 all: $(OBJS) 
